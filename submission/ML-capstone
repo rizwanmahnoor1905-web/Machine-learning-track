@@ -1,0 +1,343 @@
+# Capstone Report — Client Access Prioritization for FlyRank Search Intelligence
+
+* **Author:** Mahnoor Rizwan
+* **Lane:** Freestyle — Client Access Prioritization
+* **Repo:** `<your GitHub repository URL>`
+* **Date:** August 28, 2026
+
+## 1. Problem framing
+
+### Decision
+
+This analysis supports the decision of **which FlyRank clients should be prioritized for resolving missing Google Search Console (GSC) and Google Analytics 4 (GA4) access** before or alongside data-driven content and SEO work.
+
+### Unit of analysis
+
+The unit of analysis is the **client**.
+
+Each client is represented by a client-level access profile describing whether the client has no access, partial access, or full access to the relevant search and analytics sources.
+
+### Output
+
+The analysis produces:
+
+* a **priority score**;
+* a **reason code** explaining the score; and
+* an **action recommendation** indicating which access-related action should be taken.
+
+The scoring framework used was:
+
+| Access profile       | Priority score | Reason                     | Recommended action        |
+| -------------------- | -------------: | -------------------------- | ------------------------- |
+| No GSC or GA4 access |            100 | No search/analytics access | Connect GSC and GA4       |
+| GSC only             |             50 | GA4 missing                | Connect GA4               |
+| GA4 only             |             50 | GSC missing                | Connect GSC               |
+| Full access          |              0 | Full access                | No access action required |
+
+### Human action
+
+A FlyRank editor or operator can use the output to identify the clients requiring attention first and route them toward the appropriate access-connection action.
+
+### Cost of a wrong call
+
+A false priority can waste operational effort by directing attention toward a client whose access is already sufficient. Conversely, failing to prioritize a client with missing access can leave the team without an important source of search or analytics information when making content-related decisions.
+
+### Why data/ML helps
+
+A manual process can identify access states, but a repeatable data workflow makes the prioritization consistent across the client population. The value of the approach is therefore primarily **operational and decision-support oriented**: it converts an existing client attribute into a standardized score, reason code, and action.
+
+This analysis does **not** establish that obtaining GSC or GA4 access causes improved rankings, traffic, clicks, or content performance.
+
+---
+
+## 2. Data safety
+
+### Data used
+
+The analysis uses the FlyRank internship warehouse data at the **client level**, specifically the information required to determine each client's search and analytics access profile.
+
+The relevant access variable is:
+
+`access_profile`
+
+The analysis distinguishes between:
+
+* `no_search_or_analytics_access`
+* `gsc_only`
+* `ga4_only`
+* `FULL_ACCESS`
+
+The underlying client identifier, `client_hash_id`, is used only to distinguish/group client records and is **not used as a predictive feature or decision signal**.
+
+### Deliberately excluded information
+
+Client-identifying information was deliberately excluded from the analysis and public reporting.
+
+The following must not appear in the public paper, notebook outputs, charts, or repository:
+
+* client names;
+* domains;
+* URLs;
+* private search queries;
+* credentials;
+* raw client exports;
+* other identifying information.
+
+Pseudonymous identifiers such as `client_hash_id` are treated as identifiers rather than meaningful model features.
+
+### Leakage risks
+
+Potential label-derived fields require particular care. Fields such as:
+
+* `trend_direction`
+* `trend_pct`
+
+must not be used as features if they are derived from the outcome or future information being evaluated.
+
+The access-prioritization analysis is based on the client's access state rather than using post-outcome performance information to construct the recommendation.
+
+The analysis therefore avoids using information that would make the result appear stronger simply because the feature contains information derived from the outcome.
+
+### Public-safety statement
+
+No client-identifying information should appear anywhere in `work/`. The public paper reports only aggregated, non-identifying findings and methodology.
+
+---
+
+## 3. Baseline
+
+The baseline is the **transparent access-profile rule** created before introducing a more complicated modeling approach.
+
+The rule assigns a priority according to the availability of GSC and GA4:
+
+* clients with neither source receive the highest priority;
+* clients with only one source receive medium priority;
+* clients with both sources receive the lowest priority.
+
+The corresponding scores are:
+
+* `100` for no search or analytics access;
+* `50` for GSC-only or GA4-only access;
+* `0` for full access.
+
+This is a fair baseline because the intended decision is directly determined by the access state itself. It is also transparent: a human can understand exactly why a client received a particular score without requiring a complex model.
+
+### Baseline performance
+
+The baseline's final numerical performance should be reported using the **same evaluation data and metric used for the model/analysis**.
+
+If a predictive model is ultimately evaluated against this rule, both must be evaluated on the **same split**.
+
+---
+
+## 4. Model / analysis
+
+### Method
+
+The analysis uses an **interpretable rule-based scoring framework** rather than an opaque prediction system.
+
+The approach translates the categorical `access_profile` variable into three outputs:
+
+1. priority score;
+2. reason code;
+3. recommended action.
+
+This method fits the decision because the desired output is not simply a probability of an unknown event. The practical requirement is to identify the client's current access situation and convert it into an actionable operational priority.
+
+### Feature list
+
+The primary feature used by the access-prioritization analysis is:
+
+* `access_profile`
+
+The following were deliberately not used as predictive features:
+
+* `client_hash_id`, because it is an identifier;
+* client names/domains/URLs, because they are identifying and unnecessary;
+* credentials or private queries, because they are unsafe and unnecessary;
+* label-derived fields such as `trend_direction` and `trend_pct` where they would introduce leakage or use outcome-derived information.
+
+### Target / proxy definition
+
+**Target/proxy:** The operational target is the **priority category implied by the client's current GSC/GA4 access state**, with greater priority assigned to clients lacking one or both required sources.
+
+This is a decision-support target rather than a claim about future Google rankings, traffic, clicks, or causal content performance.
+
+---
+
+## 5. Evaluation
+
+### Evaluation design
+
+The evaluation must compare the proposed analysis against the baseline using the **same data and the same evaluation conditions**.
+
+Because this analysis operates at the client level, the client should remain the unit of analysis and pseudonymous client identifiers should be used only for grouping and integrity checks.
+
+Where a predictive model is introduced, the split should prevent the same client's information from appearing across training and evaluation sets. If the analysis uses only a deterministic access-profile rule, the primary evaluation is instead a consistency and coverage check of the resulting categories and actions.
+
+### Error analysis
+
+The most important failure modes are operational:
+
+* assigning high priority to a client that already has sufficient access;
+* failing to prioritize a client with missing access;
+* assigning the wrong recommended connection action when only one source is missing.
+
+The interpretability of the rule makes these cases straightforward to inspect because each recommendation can be traced back to the corresponding access profile.
+
+---
+
+## 6. Interpretation
+
+The analysis identifies three practically meaningful levels of access readiness.
+
+### 1. No search or analytics access
+
+These clients lack both GSC and GA4 access and therefore receive the highest priority score.
+
+The corresponding action is:
+
+**Connect GSC and GA4.**
+
+### 2. Partial access
+
+Clients with only one of GSC or GA4 available receive a medium priority.
+
+The missing source determines the action:
+
+* GSC only → connect GA4;
+* GA4 only → connect GSC.
+
+### 3. Full access
+
+Clients with both sources available receive the lowest access-related priority.
+
+No access-connection action is required based on this particular analysis.
+
+### Interpretation of the result
+
+The main finding is that **client access states can be converted into an interpretable prioritization framework**.
+
+The important result is not that the framework predicts Google's behavior. It does not.
+
+It also does not demonstrate that obtaining GSC or GA4 access will cause an improvement in rankings, clicks, traffic, or engagement.
+
+The supported interpretation is narrower: the available client access information can be used to **identify different operational cases and prioritize the corresponding access-related action**.
+
+### Negative result / limitation of interpretation
+
+The access profile alone does not establish which content strategy will perform best after access is obtained. It identifies an operational prerequisite or opportunity, not the downstream causal effect of addressing it.
+
+---
+
+## 7. Recommendation
+
+The resulting action playbook is ranked as follows.
+
+### Priority 1 — Clients with no GSC or GA4 access
+
+**Action:** Connect both GSC and GA4.
+
+**Why first:** Neither search nor analytics access is available, so the client has the largest access gap represented in this analysis.
+
+**Confidence:** High for identifying the access state and assigning the corresponding operational action.
+
+**Limit:** This does not prove that connecting both sources will improve content performance.
+
+### Priority 2 — Clients with partial access
+
+**Action:** Connect the missing source.
+
+* GSC only → connect GA4.
+* GA4 only → connect GSC.
+
+**Why second:** One relevant source is already available, but the missing source limits the completeness of the available search/analytics information.
+
+**Confidence:** High for identifying which source is missing.
+
+**Limit:** The analysis does not estimate the downstream performance effect of connecting the missing source.
+
+### Priority 3 — Clients with full access
+
+**Action:** No access-related intervention.
+
+**Why third:** Both GSC and GA4 are already available according to the access profile.
+
+**Confidence:** High for the access-status decision.
+
+**Limit:** Full access does not imply that the client's content is performing well. It only means that the access-related gap identified by this analysis is not present.
+
+### How a FlyRank editor could use this tomorrow
+
+The workflow can be applied to the current client population to create a prioritized operational list:
+
+`client → access profile → priority score → reason code → action`
+
+This makes the recommendation explainable and repeatable rather than relying on manual inspection.
+
+---
+
+## 8. Reproducibility
+
+The analysis should be reproducible from a fresh clone of the repository.
+
+### Repository
+https://github.com/rizwanmahnoor1905-web/Machine-learning-track
+### Relevant files
+
+The capstone analysis and supporting weekly notebooks are stored under:
+
+`work/`
+
+The final capstone report is:
+
+`work/capstone_report.md`
+
+The deployed paper URL is stored in:
+
+`submission/paper_url.txt`
+
+### Data access
+
+The FlyRank internship warehouse is accessed through the provided Hugging Face dataset release using the workflow taught in the internship starter notebook, with DuckDB used to query the Parquet data.
+
+The analysis should be rerun using the same data release, filters, feature definitions, and scoring logic documented in the final notebook.
+
+# Claims Checklist
+
+Before submitting the capstone, every statement should be classified as one of:
+
+* **Observed** — directly visible in the data.
+* **Measured** — calculated using a documented metric.
+* **Directional** — indicates a pattern without establishing causality.
+* **Decision-support** — supports an operational action without claiming that the action causes an outcome.
+
+The report does **not** claim:
+
+* that the analysis predicted Google's algorithm;
+* that connecting GSC or GA4 causes higher rankings;
+* that the recommendations cause increased traffic or clicks;
+* that the analysis establishes causal refresh impact.
+
+The report uses the analysis as **decision support** and keeps the conclusions within what the available data can establish.
+
+## Metrics vs. Base Rate
+
+If classification metrics are included, the relevant base rate must be reported alongside them. Accuracy or precision alone should not be presented as evidence of strong discrimination when the class distribution could explain the result.
+
+Any model-vs-baseline numbers in this report must be copied from a **fresh rerun of the final notebook** and calculated on the same evaluation data.
+
+## Final Public-Safety Check
+
+Before deployment, verify that:
+
+* no client names appear;
+* no client domains appear;
+* no private URLs appear;
+* no private queries appear;
+* no credentials or tokens appear;
+* no raw client exports are exposed;
+* pseudonymous IDs are not presented as meaningful features;
+* no causal claims are made;
+* no claims about predicting Google's algorithm are made;
+* every numerical result matches a fresh rerun.
